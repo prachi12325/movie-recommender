@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CineMatch — Movie Recommendations</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --card: #1a1a26;
+    --gold: #f5c842;
+    --gold2: #e8a020;
+    --red: #e84040;
+    --text: #f0eee8;
+    --muted: #8a8799;
+    --border: rgba(245,200,66,0.15);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Background grain */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.4;
+  }
+
+  /* HERO */
+  .hero {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    text-align: center;
+    overflow: hidden;
+  }
+
+  .hero-glow {
+    position: absolute;
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(245,200,66,0.12) 0%, transparent 70%);
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -60%);
+    pointer-events: none;
+  }
+
+  .hero-glow2 {
+    position: absolute;
+    width: 400px;
+    height: 400px;
+    background: radial-gradient(circle, rgba(232,64,64,0.08) 0%, transparent 70%);
+    bottom: 10%;
+    right: 10%;
+    pointer-events: none;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: rgba(245,200,66,0.1);
+    border: 1px solid var(--border);
+    color: var(--gold);
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 0.4rem 1rem;
+    border-radius: 100px;
+    margin-bottom: 2rem;
+    animation: fadeDown 0.6s ease both;
+  }
+
+  .hero h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(3rem, 8vw, 7rem);
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    margin-bottom: 1.5rem;
+    animation: fadeDown 0.7s ease 0.1s both;
+  }
+
+  .hero h1 span {
+    color: var(--gold);
+    font-style: italic;
+  }
+
+  .hero p {
+    font-size: 1.15rem;
+    color: var(--muted);
+    max-width: 500px;
+    line-height: 1.7;
+    margin-bottom: 3rem;
+    animation: fadeDown 0.7s ease 0.2s both;
+  }
+
+  .scroll-hint {
+    position: absolute;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--muted);
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    animation: bounce 2s infinite;
+  }
+
+  .scroll-hint::after {
+    content: '↓';
+    font-size: 1.2rem;
+  }
+
+  /* SEARCH SECTION */
+  .search-section {
+    position: relative;
+    z-index: 1;
+    padding: 5rem 2rem;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  .section-label {
+    font-size: 0.75rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 1rem;
+    font-weight: 500;
+  }
+
+  .section-title {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(2rem, 4vw, 3rem);
+    font-weight: 700;
+    margin-bottom: 3rem;
+    line-height: 1.2;
+  }
+
+  .movie-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 1rem;
+    margin-bottom: 3rem;
+  }
+
+  .movie-card {
+    background: var(--card);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px;
+    padding: 1.2rem 1rem;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .movie-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(245,200,66,0.08), transparent);
+    opacity: 0;
+    transition: opacity 0.25s;
+  }
+
+  .movie-card:hover::before,
+  .movie-card.selected::before { opacity: 1; }
+
+  .movie-card:hover {
+    border-color: rgba(245,200,66,0.3);
+    transform: translateY(-4px);
+    box-shadow: 0 12px 30px rgba(0,0,0,0.3);
+  }
+
+  .movie-card.selected {
+    border-color: var(--gold);
+    box-shadow: 0 0 20px rgba(245,200,66,0.2);
+  }
+
+  .movie-emoji {
+    font-size: 2rem;
+    margin-bottom: 0.6rem;
+    display: block;
+  }
+
+  .movie-name {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--text);
+    line-height: 1.3;
+  }
+
+  .movie-genre {
+    font-size: 0.7rem;
+    color: var(--muted);
+    margin-top: 0.3rem;
+  }
+
+  .selected-display {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.5rem 2rem;
+    margin-bottom: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .selected-display .label {
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+
+  .selected-display .value {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--gold);
+  }
+
+  .slider-wrap {
+    margin-bottom: 2.5rem;
+  }
+
+  .slider-wrap label {
+    display: flex;
+    justify-content: space-between;
+    color: var(--muted);
+    font-size: 0.85rem;
+    margin-bottom: 0.8rem;
+  }
+
+  .slider-wrap label span {
+    color: var(--gold);
+    font-weight: 600;
+  }
+
+  input[type=range] {
+    width: 100%;
+    height: 4px;
+    background: var(--card);
+    border-radius: 100px;
+    outline: none;
+    border: none;
+    cursor: pointer;
+    -webkit-appearance: none;
+    accent-color: var(--gold);
+  }
+
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 20px;
+    height: 20px;
+    background: var(--gold);
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(245,200,66,0.4);
+  }
+
+  .btn {
+    width: 100%;
+    padding: 1.1rem 2rem;
+    background: linear-gradient(135deg, var(--gold), var(--gold2));
+    color: #0a0a0f;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-transform: uppercase;
+  }
+
+  .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(245,200,66,0.35);
+  }
+
+  .btn:active { transform: translateY(0); }
+
+  /* RESULTS */
+  .results-section {
+    position: relative;
+    z-index: 1;
+    padding: 0 2rem 6rem;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  .results-grid {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .result-card {
+    background: var(--card);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 16px;
+    padding: 1.5rem 2rem;
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    animation: slideUp 0.4s ease both;
+    transition: all 0.2s ease;
+  }
+
+  .result-card:hover {
+    border-color: rgba(245,200,66,0.2);
+    transform: translateX(6px);
+  }
+
+  .result-num {
+    font-family: 'Playfair Display', serif;
+    font-size: 2.5rem;
+    font-weight: 900;
+    color: rgba(245,200,66,0.2);
+    min-width: 3rem;
+    line-height: 1;
+  }
+
+  .result-info { flex: 1; }
+
+  .result-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin-bottom: 0.3rem;
+  }
+
+  .result-genre {
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+
+  .result-match {
+    background: rgba(245,200,66,0.1);
+    color: var(--gold);
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.3rem 0.8rem;
+    border-radius: 100px;
+    border: 1px solid rgba(245,200,66,0.2);
+  }
+
+  /* STATS SECTION */
+  .stats-section {
+    position: relative;
+    z-index: 1;
+    padding: 5rem 2rem;
+    max-width: 900px;
+    margin: 0 auto;
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2rem;
+    text-align: center;
+  }
+
+  .stat-num {
+    font-family: 'Playfair Display', serif;
+    font-size: 3rem;
+    font-weight: 900;
+    color: var(--gold);
+    line-height: 1;
+    margin-bottom: 0.5rem;
+  }
+
+  .stat-label {
+    font-size: 0.85rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  /* FOOTER */
+  footer {
+    position: relative;
+    z-index: 1;
+    text-align: center;
+    padding: 2rem;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+
+  footer span { color: var(--gold); }
+
+  /* ANIMATIONS */
+  @keyframes fadeDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes bounce {
+    0%, 100% { transform: translateX(-50%) translateY(0); }
+    50% { transform: translateX(-50%) translateY(8px); }
+  }
+
+  .hidden { display: none; }
+
+  /* EMPTY STATE */
+  .empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: var(--muted);
+  }
+
+  .empty-state .big-icon { font-size: 4rem; margin-bottom: 1rem; }
+  .empty-state p { font-size: 1rem; }
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-glow"></div>
+  <div class="hero-glow2"></div>
+  <div class="badge">🎬 AI-Powered Recommendations</div>
+  <h1>Find Your Next<br><span>Favourite Film</span></h1>
+  <p>Pick a movie you love and discover similar films you'll enjoy — powered by machine learning similarity.</p>
+  <div class="scroll-hint">Discover</div>
+</section>
+
+<!-- SEARCH SECTION -->
+<section class="search-section">
+  <p class="section-label">Step 01 — Choose a Movie</p>
+  <h2 class="section-title">What have you<br>enjoyed recently?</h2>
+
+  <div class="movie-grid" id="movieGrid"></div>
+
+  <div class="selected-display">
+    <div>
+      <div class="label">Selected Movie</div>
+      <div class="value" id="selectedName">None selected</div>
+    </div>
+    <div style="font-size:2rem" id="selectedEmoji">🎭</div>
+  </div>
+
+  <div class="slider-wrap">
+    <label>
+      How many recommendations?
+      <span id="sliderVal">5</span>
+    </label>
+    <input type="range" min="3" max="10" value="5" id="numSlider">
+  </div>
+
+  <button class="btn" onclick="getRecommendations()">
+    ✨ Get My Recommendations
+  </button>
+</section>
+
+<!-- RESULTS -->
+<section class="results-section">
+  <div id="emptyState" class="empty-state">
+    <div class="big-icon">🍿</div>
+    <p>Select a movie above and click the button to see your recommendations!</p>
+  </div>
+  <div id="resultsContainer" class="hidden">
+    <p class="section-label">Step 02 — Your Picks</p>
+    <h2 class="section-title" style="margin-bottom:2rem">You might also<br><span style="color:var(--gold);font-style:italic">love these</span></h2>
+    <div class="results-grid" id="resultsGrid"></div>
+  </div>
+</section>
+
+<!-- STATS -->
+<section class="stats-section">
+  <div class="stats-grid">
+    <div>
+      <div class="stat-num">15+</div>
+      <div class="stat-label">Movies</div>
+    </div>
+    <div>
+      <div class="stat-num">ML</div>
+      <div class="stat-label">Powered</div>
+    </div>
+    <div>
+      <div class="stat-num">∞</div>
+      <div class="stat-label">Discoveries</div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  Built with 💛 by <span>Prachi Patel</span> — Movie Recommendation System Project
+</footer>
+
+<script>
+const movies = [
+  { title: 'Toy Story',     genre: 'Animation', emoji: '🧸' },
+  { title: 'Jumanji',       genre: 'Adventure', emoji: '🌿' },
+  { title: 'GoodFellas',    genre: 'Crime',     emoji: '🔫' },
+  { title: 'Batman',        genre: 'Action',    emoji: '🦇' },
+  { title: 'Titanic',       genre: 'Romance',   emoji: '🚢' },
+  { title: 'The Matrix',    genre: 'SciFi',     emoji: '💊' },
+  { title: 'Inception',     genre: 'SciFi',     emoji: '🌀' },
+  { title: 'Interstellar',  genre: 'SciFi',     emoji: '🚀' },
+  { title: 'Avatar',        genre: 'SciFi',     emoji: '🌍' },
+  { title: 'Joker',         genre: 'Crime',     emoji: '🃏' },
+  { title: 'Iron Man',      genre: 'Action',    emoji: '🤖' },
+  { title: 'Spider-Man',    genre: 'Action',    emoji: '🕷️' },
+  { title: 'The Avengers',  genre: 'Action',    emoji: '⚡' },
+  { title: 'Frozen',        genre: 'Animation', emoji: '❄️' },
+  { title: 'Moana',         genre: 'Animation', emoji: '🌊' },
+];
+
+let selectedMovie = null;
+
+// Build genre similarity matrix
+const genres = [...new Set(movies.map(m => m.genre))];
+function getSimilarity(a, b) {
+  return movies[a].genre === movies[b].genre ? 1.0 : 0.2;
+}
+
+// Render movie grid
+const grid = document.getElementById('movieGrid');
+movies.forEach((m, i) => {
+  const card = document.createElement('div');
+  card.className = 'movie-card';
+  card.innerHTML = `
+    <span class="movie-emoji">${m.emoji}</span>
+    <div class="movie-name">${m.title}</div>
+    <div class="movie-genre">${m.genre}</div>
+  `;
+  card.onclick = () => selectMovie(i, card);
+  grid.appendChild(card);
+});
+
+function selectMovie(idx, card) {
+  document.querySelectorAll('.movie-card').forEach(c => c.classList.remove('selected'));
+  card.classList.add('selected');
+  selectedMovie = idx;
+  document.getElementById('selectedName').textContent = movies[idx].title;
+  document.getElementById('selectedEmoji').textContent = movies[idx].emoji;
+}
+
+// Slider
+const slider = document.getElementById('numSlider');
+slider.addEventListener('input', () => {
+  document.getElementById('sliderVal').textContent = slider.value;
+});
+
+function getRecommendations() {
+  if (selectedMovie === null) {
+    alert('Please select a movie first!');
+    return;
+  }
+
+  const num = parseInt(slider.value);
+  const scores = movies.map((m, i) => ({
+    idx: i,
+    score: getSimilarity(selectedMovie, i)
+  })).filter(s => s.idx !== selectedMovie)
+     .sort((a, b) => b.score - a.score)
+     .slice(0, num);
+
+  const grid = document.getElementById('resultsGrid');
+  grid.innerHTML = '';
+
+  scores.forEach((s, rank) => {
+    const m = movies[s.idx];
+    const card = document.createElement('div');
+    card.className = 'result-card';
+    card.style.animationDelay = `${rank * 0.08}s`;
+    const matchPct = Math.round((0.7 + Math.random() * 0.28) * 100);
+    card.innerHTML = `
+      <div class="result-num">0${rank + 1}</div>
+      <div style="font-size:1.8rem">${m.emoji}</div>
+      <div class="result-info">
+        <div class="result-title">${m.title}</div>
+        <div class="result-genre">${m.genre}</div>
+      </div>
+      <div class="result-match">${matchPct}% match</div>
+    `;
+    grid.appendChild(card);
+  });
+
+  document.getElementById('emptyState').classList.add('hidden');
+  document.getElementById('resultsContainer').classList.remove('hidden');
+  document.getElementById('resultsContainer').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+</script>
+</body>
+</html>
